@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>电信客户流失深度研究 | 综合分析门户</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #3498db;
+            --bg: #f4f7f6;
+            --card: #ffffff;
+            --code-bg: #282c34;
+        }
+        body { font-family: 'Inter', 'Segoe UI', sans-serif; line-height: 1.6; color: #333; background: var(--bg); margin: 0; }
+        .top-bar { height: 8px; background: linear-gradient(90deg, #3498db, #8e44ad); }
+        header { background: var(--primary); color: white; padding: 4rem 1rem; text-align: center; }
+        header h1 { margin: 0; font-size: 2.2rem; letter-spacing: 1px; }
+        header p { opacity: 0.8; margin-top: 10px; }
+        .container { max-width: 1000px; margin: -3rem auto 3rem; padding: 0 1.5rem; }
+        .section { background: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); margin-bottom: 2.5rem; }
+        h2 { color: var(--primary); border-left: 5px solid var(--accent); padding-left: 15px; margin-top: 0; font-size: 1.6rem; }
+        pre { background: var(--code-bg); color: #abb2bf; padding: 1.2rem; border-radius: 8px; overflow-x: auto; font-size: 0.85rem; border: 1px solid #1c1f24; margin: 1.5rem 0; }
+        code { font-family: 'Fira Code', 'Consolas', monospace; }
+        .img-container { background: #f9f9f9; border: 1px solid #eee; border-radius: 8px; padding: 20px; text-align: center; margin: 1.5rem 0; }
+        .img-container img { max-width: 100%; height: auto; border-radius: 6px; }
+        .analysis-box { background: #e8f4fd; border-radius: 8px; padding: 1.5rem; margin-top: 1.5rem; border-left: 5px solid #2980b9; }
+        .analysis-box strong { color: var(--primary); display: block; margin-bottom: 8px; font-size: 1.1rem; }
+        .tag { display: inline-block; padding: 2px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; margin-right: 5px; color: white; vertical-align: middle; }
+        .tag-spark { background: #e67e22; }
+        .tag-stats { background: #3498db; }
+        .tag-ml { background: #27ae60; }
+        footer { text-align: center; padding: 4rem 0; color: #95a5a6; font-size: 0.9rem; }
+        ul { padding-left: 20px; }
+        li { margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+
+<div class="top-bar"></div>
+<header>
+    <h1>电信行业客户生命周期全景分析报告</h1>
+    <p>基于 PySpark 分布式处理与生存分析模型的商业价值洞察</p>
+</header>
+
+<div class="container">
+
+    <div class="section">
+        <h2>1. 数据工程与分布式预处理 <span class="tag tag-spark">PySpark</span></h2>
+        <p>本项目使用 <strong>PySpark</strong> 构建了分布式数据管道，通过显式定义的 <code>StructType</code> 严格模式加载 IBM 原始数据集，确保 21 个字段的数据类型精确无误。</p>
+        <pre><code># PySpark 数据清洗与过滤核心逻辑
+from pyspark.sql.types import StructType, StructField, StringType, DoubleType
+
+# 定义严格 Schema 防止推断错误
+schema = StructType([StructField("Churn", StringType(), True), ...])
+df_spark = spark.read.schema(schema).csv("telco_data.csv")
+
+# 转换目标变量并聚焦核心客群（按月付费+互联网服务）
+df_pyspark = df_spark.withColumn("Churn_Numeric", when(col("Churn") == "Yes", 1).otherwise(0))
+df_filtered = df_pyspark.filter((col("Contract") == "Month-to-month") & (col("InternetService") != "No"))
+df_pandas = df_filtered.toPandas() # 对接 Lifelines 库</code></pre>
+        <div class="analysis-box">
+            <strong>工程结论：</strong>
+            <ul>
+                <li><strong>高精度：</strong> 显式模式定义消除了类型推断偏差；</li>
+                <li><strong>精准聚焦：</strong> 过滤逻辑锁定了高流动性的核心客群，为生存分析提供了高质量的输入样本。</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>2. 总体留存趋势：Kaplan-Meier 估计 <span class="tag tag-stats">Non-Parametric</span></h2>
+        <p>在不预设概率分布的前提下，通过对在网时长（Tenure）和流失状态（Churn）的拟合，描绘客户留存的生命线。</p>
+        <div class="img-container">
+            <img src="km_plot.png" alt="Kaplan-Meier 生存概率曲线">
+        </div>
+        <pre><code>from lifelines import KaplanMeierFitter
+kmf = KaplanMeierFitter().fit(df_pandas['tenure'], df_pandas['Churn_Numeric'])
+print(f"中位数生存时间: {kmf.median_survival_time_}")</code></pre>
+        <div class="analysis-box">
+            <strong>核心洞察：</strong>
+            <ul>
+                <li><strong>关键阈值：</strong> 该客群的<strong>中位数生存时间为 34 个月</strong>，意味着一半的客户在入网不到 3 年内就会流失；</li>
+                <li><strong>不确定性：</strong> 随着时间推移，生存概率曲线的置信区间变宽，提示长期留存预测的波动性增加。</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>3. 流失风险归因：Cox 比例风险模型 <span class="tag tag-ml">Semi-Parametric</span></h2>
+        <p>通过对类别特征进行独热编码（One-Hot Encoding），利用 CoxPH 模型量化各项增值服务对流失风险的影响。</p>
+        <div class="img-container">
+            <img src="cox_plot.png" alt="Cox 模型风险比分析">
+        </div>
+        <div class="analysis-box">
+            <strong>保护因素分析：</strong>
+            <ul>
+                <li><strong>显著保护：</strong> 摘要显示所有纳入的服务特征风险比均小于 1，均起到留存保护作用；</li>
+                <li><strong>核心拉力：</strong> <strong>网络备份 (Online Backup)</strong> 使流失风险降低约 <strong>54%</strong>；<strong>技术支持 (Tech Support)</strong> 使流失风险降低约 <strong>47%</strong>。</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>4. 生命周期延长评估：AFT 模型 <span class="tag tag-ml">Parametric</span></h2>
+        <p>利用 Log-Logistic 加速失效时间模型，直接计算各服务特征对客户预期寿命的加速因子（Acceleration Factor）。</p>
+        <div class="img-container">
+            <img src="aft_plot.png" alt="AFT 模型生存时间预测">
+        </div>
+        <div class="analysis-box">
+            <strong>时间延长效应：</strong>
+            <ul>
+                <li><strong>倍数增益：</strong> <strong>网络安全服务</strong>使预期寿命延长了 <strong>2.37 倍</strong>；<strong>网络备份</strong>延长了 <strong>2.25 倍</strong>；</li>
+                <li><strong>支付效应：</strong> 采用自动扣款（Auto-pay）的客户，其在网时间也显著延长至 <strong>2 倍以上</strong>。</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>5. 商业价值落地：CLV 预测推演 <span class="tag tag-spark">NPV Calculation</span></h2>
+        <p>结合 Cox 模型生成的留存概率曲线与财务贴现率（WACC），计算特定特征组合客户的净现值累加和。</p>
+        <div class="img-container">
+            <img src="clv_plot.png" alt="客户终身价值增长曲线">
+        </div>
+        <div class="analysis-box">
+            <strong>典型客户画像价值（无家属、DSL、有技术支持）：</strong>
+            <ul>
+                <li><strong>概率衰减：</strong> 第 1 个月存活率为 0.94，至第 13 个月降至 0.78；</li>
+                <li><strong>价值量化：</strong> 经过 13 个月的生命周期，单客户贡献的<strong>累积终身价值（CLV）达到 312.56 美元</strong>。这为获客成本（CAC）的上限设定提供了精准的数据支撑。</li>
+            </ul>
+        </div>
+    </div>
+
+</div>
+
+<footer>
+    <p>报告生成：2026年4月 | 基于 PySpark 与 Lifelines 建模 | GitHub Pages 部署</p>
+</footer>
+
+</body>
+</html>
